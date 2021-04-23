@@ -17,11 +17,19 @@ limitations under the License.
 package server
 
 import (
+    "context"
+
 	admissionv1 "k8s.io/api/admission/v1"
+    policyv1beta1 "k8s.io/api/policy/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog"
 
     "k8s.io/client-go/kubernetes"
+)
+
+const (
+    PreventEvictAnnotation = "k8s-eviction-extender.michaelgugino.github.com/no-evict"
+    EvictionRequested = "k8s-eviction-extender.michaelgugino.github.com/evict-requested"
 )
 
 type evictionExtender struct {
@@ -31,29 +39,58 @@ type evictionExtender struct {
 func (ex evictionExtender) evictionCreate(ar admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	klog.Errorf("admitting eviction")
 
-    /*
-	routeresource := metav1.GroupVersionResource{Group: "route.openshift.io", Version: "v1", Resource: "routes"}
-	if ar.Request.Resource != routeresource {
-		klog.Errorf("expect resource to be %s, found %v", routeresource, ar.Request.Resource)
+    evictResource := metav1.GroupVersionResource{Group: "policy", Version: "v1beta1", Resource: "Eviction"}
+	if ar.Request.Resource != evictResource {
+		klog.Errorf("expect resource to be %s", evictResource)
 		return nil
 	}
-	reviewResponse := v1beta1.AdmissionResponse{}
 
-	reviewResponse.Allowed = false
-
-	raw := ar.Request.Object.Raw
-	route := routeapi.Route{}
-	err := json.Unmarshal(raw, &route)
-	if err != nil {
+	var raw []byte
+	if ar.Request.Operation == admissionv1.Delete {
+		raw = ar.Request.OldObject.Raw
+	} else {
+		raw = ar.Request.Object.Raw
+	}
+	evictionRequest := policyv1beta1.Eviction{}
+	deserializer := codecs.UniversalDeserializer()
+	if _, _, err := deserializer.Decode(raw, nil, &evictionRequest); err != nil {
 		klog.Error(err)
 		return toAdmissionResponse(err)
 	}
-    */
+
+    klog.Errorf("Getting pod")
+
+    name := evictionRequest.Name
+    namespace := evictionRequest.Namespace
+
     reviewResponse := admissionv1.AdmissionResponse{}
-	reviewResponse.Allowed = false
-	reviewResponse.Result = &metav1.Status{
-		Reason: "Eviction not allowed",
-        Code: 429,
+
+    pod, err := ex.kclient.CoreV1().Pods(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+    if err != nil {
+        reviewResponse.Allowed = false
+    	reviewResponse.Result = &metav1.Status{
+    		Reason: "Unable to get pod",
+            Code: 429,
+    	}
+    }
+
+    if _, exists := pod.ObjectMeta.Annotations[PreventEvictAnnotation]; exists {
+        if _, exists := pod.ObjectMeta.Annotations[EvictionRequested]; !exists {
+            p2 := pod.DeepCopy()
+            metav1.SetMetaDataAnnotation(&p2.ObjectMeta, EvictionRequested, "")
+            _, err := ex.kclient.CoreV1().Pods(namespace).Update(context.TODO(), p2, metav1.UpdateOptions{})
+            if err != nil {
+                klog.Errorf("Error updating pod: %v", err)
+            }
+        }
+        reviewResponse.Allowed = false
+    	reviewResponse.Result = &metav1.Status{
+    		Reason: "Eviction not allowed by PreventEvictAnnotation",
+            Code: 429,
+    	}
 	}
+
+	reviewResponse.Allowed = true
+
 	return &reviewResponse
 }
