@@ -40,7 +40,7 @@ func (ex evictionExtender) evictionCreate(ar admissionv1.AdmissionReview) *admis
 	klog.Errorf("admitting eviction")
 
     evictResource := metav1.GroupVersionKind{Group: "policy", Version: "v1beta1", Kind: "Eviction"}
-	if *ar.Request.RequestKind != evictResource {
+	if ar.Request == nil || ar.Request.RequestKind == nil || *ar.Request.RequestKind != evictResource {
 		klog.Errorf("expect requestKind to be %s", evictResource)
 		return nil
 	}
@@ -72,6 +72,7 @@ func (ex evictionExtender) evictionCreate(ar admissionv1.AdmissionReview) *admis
     		Reason: "Unable to get pod",
             Code: 429,
     	}
+        return &reviewResponse
     }
 
     if _, exists := pod.ObjectMeta.Annotations[PreventEvictAnnotation]; exists {
@@ -88,6 +89,7 @@ func (ex evictionExtender) evictionCreate(ar admissionv1.AdmissionReview) *admis
     		Reason: "Eviction not allowed by PreventEvictAnnotation",
             Code: 429,
     	}
+        return &reviewResponse
 	}
 
 	reviewResponse.Allowed = true
