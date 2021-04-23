@@ -1,0 +1,28 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: eviction-create
+  annotations:
+      service.beta.openshift.io/inject-cabundle: "true"
+webhooks:
+- name: k8s-eviction-extender.michaelgugino.github.com
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - "v1"
+    operations:
+    - "CREATE"
+    resources:
+    - "pods/eviction"
+  # Default failurePolicy is not fail.
+  failurePolicy: Fail
+  clientConfig:
+    service:
+      namespace: default
+      name: k8s-eviction-extender-service
+      path: /eviction
+    # base64 encoded contents of a .pem cert file.
+#    caBundle: # base64 encoded CA of the cert used in URL.
+  admissionReviewVersions: ["v1", "v1beta1"]
+  sideEffects: None

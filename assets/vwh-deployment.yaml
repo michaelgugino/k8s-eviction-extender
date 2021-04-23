@@ -2,27 +2,28 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: kube-vwh-example-deployment
+  name: k8s-eviction-extender
   labels:
-    app: kube-vwh
+    app: k8s-eviction-extender
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: kube-vwh
+      app: k8s-eviction-extender
   template:
     metadata:
       labels:
-        app: kube-vwh
+        app: k8s-eviction-extender
     spec:
       containers:
-        - name: kube-vwh-example
-          image: docker.io/mgugino/kube-vwh:latest
+        - name: k8s-eviction-extender
+          image: quay.io/mgugino.redhat/k8s-eviction-extender:latest
           imagePullPolicy: Always
+          command:
+          - "/k8s-eviction-extender"
           args:
-            - server
-            - --certpath=/etc/secret-volume/tls.crt
-            - --keypath=/etc/secret-volume/tls.key
+            - --webhook-cert=/etc/secret-volume/tls.crt
+            - --webhook-key=/etc/secret-volume/tls.key
             - 2>&1
           volumeMounts:
               # name must match the volume name below
@@ -32,4 +33,4 @@ spec:
       volumes:
         - name: secret-volume
           secret:
-            secretName: kube-vwh
+            secretName: k8s-eviction-extender

@@ -17,7 +17,7 @@ limitations under the License.
 package server
 
 import (
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog"
 
@@ -28,7 +28,7 @@ type evictionExtender struct {
 	kclient *kubernetes.Clientset
 }
 
-func (ex evictionExtender) evictionCreate(ar v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+func (ex evictionExtender) evictionCreate(ar admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	klog.Errorf("admitting eviction")
 
     /*
@@ -49,7 +49,7 @@ func (ex evictionExtender) evictionCreate(ar v1beta1.AdmissionReview) *v1beta1.A
 		return toAdmissionResponse(err)
 	}
     */
-    reviewResponse := v1beta1.AdmissionResponse{}
+    reviewResponse := admissionv1.AdmissionResponse{}
 	reviewResponse.Allowed = false
 	reviewResponse.Result = &metav1.Status{
 		Reason: "Eviction not allowed",

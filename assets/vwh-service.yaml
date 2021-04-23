@@ -1,13 +1,13 @@
 kind: Service
 apiVersion: v1
 metadata:
-  name: kube-vwh-service
+  name: k8s-eviction-extender-service
   annotations:
     # This will ensure a tls key pair will be created for our pod.
-    service.alpha.openshift.io/serving-cert-secret-name: kube-vwh
+    service.beta.openshift.io/serving-cert-secret-name: k8s-eviction-extender
 spec:
   selector:
-    app: kube-vwh
+    app: k8s-eviction-extender
   ports:
   - protocol: TCP
     port: 443
