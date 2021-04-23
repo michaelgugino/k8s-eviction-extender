@@ -1,0 +1,35 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kube-vwh-example-deployment
+  labels:
+    app: kube-vwh
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kube-vwh
+  template:
+    metadata:
+      labels:
+        app: kube-vwh
+    spec:
+      containers:
+        - name: kube-vwh-example
+          image: docker.io/mgugino/kube-vwh:latest
+          imagePullPolicy: Always
+          args:
+            - server
+            - --certpath=/etc/secret-volume/tls.crt
+            - --keypath=/etc/secret-volume/tls.key
+            - 2>&1
+          volumeMounts:
+              # name must match the volume name below
+              - name: secret-volume
+                mountPath: /etc/secret-volume
+                readOnly: true
+      volumes:
+        - name: secret-volume
+          secret:
+            secretName: kube-vwh

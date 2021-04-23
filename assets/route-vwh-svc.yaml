@@ -1,0 +1,26 @@
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: deny-route-custom-create
+webhooks:
+- name: deny.route-custom.create
+  rules:
+  - apiGroups:
+    - "route.openshift.io"
+    apiVersions:
+    #- "route.openshift.io/v1"
+    - "v1"
+    # also tried just "v1" for apiVersions, no change.
+    operations:
+    - "CREATE"
+    resources:
+    - "*"
+  # Default failurePolicy is not fail.
+  failurePolicy: Fail
+  clientConfig:
+    service:
+      namespace: default
+      name: kube-vwh-service
+      path: /route-deny
+    # base64 encoded contents of a .pem cert file.
+    caBundle: # base64 encoded CA of the cert used in URL.
