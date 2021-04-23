@@ -9,6 +9,7 @@ import (
 
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog"
 	"k8s.io/client-go/kubernetes"
 	// TODO: try this library to see if it generates correct json patch
@@ -70,8 +71,7 @@ func serve(w http.ResponseWriter, r *http.Request, admit admitFunc) {
 			body = data
 		}
 	}
-	klog.Errorf(fmt.Sprintf("handling request: %s", body))
-    klog.Errorf("attempting to read header")
+
 	// verify the content type is accurate
 	contentType := r.Header.Get("Content-Type")
 	if contentType != "application/json" {
@@ -81,35 +81,61 @@ func serve(w http.ResponseWriter, r *http.Request, admit admitFunc) {
 
 	klog.V(2).Info(fmt.Sprintf("handling request: %s", body))
 
-    klog.Errorf("allocate ar")
-	// The AdmissionReview that was sent to the webhook
-	requestedAdmissionReview := admissionv1.AdmissionReview{}
-
-	// The AdmissionReview that will be returned
-	responseAdmissionReview := admissionv1.AdmissionReview{}
-    klog.Errorf("attempting deserialize")
 	deserializer := codecs.UniversalDeserializer()
-	if _, _, err := deserializer.Decode(body, nil, &requestedAdmissionReview); err != nil {
-		klog.Error(err)
-		responseAdmissionReview.Response = toAdmissionResponse(err)
-	} else {
-		// pass to admitFunc
-        klog.Errorf("attempting to admit")
-		responseAdmissionReview.Response = admit(requestedAdmissionReview)
+	obj, gvk, err := deserializer.Decode(body, nil, nil)
+	if err != nil {
+		msg := fmt.Sprintf("Request could not be decoded: %v", err)
+		klog.Error(msg)
+		http.Error(w, msg, http.StatusBadRequest)
+		return
 	}
-    klog.Errorf("attempting to return uid")
-	// Return the same UID
-	responseAdmissionReview.Response.UID = requestedAdmissionReview.Request.UID
 
-	klog.V(2).Info(fmt.Sprintf("sending response: %v", responseAdmissionReview.Response))
 
-	respBytes, err := json.Marshal(responseAdmissionReview)
+	var responseObj runtime.Object
+	switch *gvk {
+	/*
+	case v1beta1.SchemeGroupVersion.WithKind("AdmissionReview"):
+		requestedAdmissionReview, ok := obj.(*v1beta1.AdmissionReview)
+		if !ok {
+			klog.Errorf("Expected v1beta1.AdmissionReview but got: %T", obj)
+			return
+		}
+		responseAdmissionReview := &v1beta1.AdmissionReview{}
+		responseAdmissionReview.SetGroupVersionKind(*gvk)
+		responseAdmissionReview.Response = admit.v1beta1(*requestedAdmissionReview)
+		responseAdmissionReview.Response.UID = requestedAdmissionReview.Request.UID
+		responseObj = responseAdmissionReview
+	*/
+	case admissionv1.SchemeGroupVersion.WithKind("AdmissionReview"):
+		requestedAdmissionReview, ok := obj.(*admissionv1.AdmissionReview)
+		if !ok {
+			klog.Errorf("Expected admissionv1.AdmissionReview but got: %T", obj)
+			return
+		}
+		responseAdmissionReview := &admissionv1.AdmissionReview{}
+		responseAdmissionReview.SetGroupVersionKind(*gvk)
+		responseAdmissionReview.Response = admit(*requestedAdmissionReview)
+		responseAdmissionReview.Response.UID = requestedAdmissionReview.Request.UID
+		responseObj = responseAdmissionReview
+	default:
+		msg := fmt.Sprintf("Unsupported group version kind: %v", gvk)
+		klog.Error(msg)
+		http.Error(w, msg, http.StatusBadRequest)
+		return
+	}
+
+	klog.V(2).Info(fmt.Sprintf("sending response: %v", responseObj))
+	respBytes, err := json.Marshal(responseObj)
 	if err != nil {
 		klog.Error(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
+	w.Header().Set("Content-Type", "application/json")
 	if _, err := w.Write(respBytes); err != nil {
 		klog.Error(err)
 	}
+
 }
 
 func serveEvictionCreate(w http.ResponseWriter, r *http.Request) {

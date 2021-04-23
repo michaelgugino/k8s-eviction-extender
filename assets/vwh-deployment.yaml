@@ -24,6 +24,7 @@ spec:
           args:
             - --webhook-cert=/etc/secret-volume/tls.crt
             - --webhook-key=/etc/secret-volume/tls.key
+            - v 4
             - 2>&1
           volumeMounts:
               # name must match the volume name below
