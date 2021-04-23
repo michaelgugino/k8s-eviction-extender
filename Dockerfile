@@ -1,4 +1,4 @@
-FROM docker.io/golang:1.16 as builder
+FROM registry.ci.openshift.org/origin/builder:golang-1.15 as builder
 WORKDIR /go/src/github.com/michaelgugino/k8s-eviction-extender
 COPY . .
 RUN NO_DOCKER=1 make build

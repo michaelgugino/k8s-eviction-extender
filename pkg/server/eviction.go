@@ -39,9 +39,9 @@ type evictionExtender struct {
 func (ex evictionExtender) evictionCreate(ar admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	klog.Errorf("admitting eviction")
 
-    evictResource := metav1.GroupVersionResource{Group: "policy", Version: "v1beta1", Resource: "Eviction"}
-	if ar.Request.Resource != evictResource {
-		klog.Errorf("expect resource to be %s", evictResource)
+    evictResource := metav1.GroupVersionKind{Group: "policy", Version: "v1beta1", Kind: "Eviction"}
+	if *ar.Request.RequestKind != evictResource {
+		klog.Errorf("expect requestKind to be %s", evictResource)
 		return nil
 	}
 
