@@ -3,6 +3,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: k8s-eviction-extender
+  namespace: kube-eviction-extender
   labels:
     app: k8s-eviction-extender
 spec:
@@ -15,6 +16,8 @@ spec:
       labels:
         app: k8s-eviction-extender
     spec:
+      serviceAccount: k8s-eviction-extender
+      serviceAccountName: k8s-eviction-extender
       containers:
         - name: k8s-eviction-extender
           image: quay.io/mgugino.redhat/k8s-eviction-extender:latest

@@ -19,8 +19,8 @@ webhooks:
   failurePolicy: Fail
   clientConfig:
     service:
-      namespace: default
-      name: k8s-eviction-extender-service
+      namespace: kube-eviction-extender
+      name: k8s-eviction-extender
       path: /eviction
     # base64 encoded contents of a .pem cert file.
 #    caBundle: # base64 encoded CA of the cert used in URL.

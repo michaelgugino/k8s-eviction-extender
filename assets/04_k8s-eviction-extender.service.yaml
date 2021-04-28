@@ -1,7 +1,8 @@
 kind: Service
 apiVersion: v1
 metadata:
-  name: k8s-eviction-extender-service
+  name: k8s-eviction-extender
+  namespace: kube-eviction-extender
   annotations:
     # This will ensure a tls key pair will be created for our pod.
     service.beta.openshift.io/serving-cert-secret-name: k8s-eviction-extender
