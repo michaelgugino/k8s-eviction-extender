@@ -18,6 +18,7 @@ package server
 
 import (
     "context"
+    "time"
 
 	admissionv1 "k8s.io/api/admission/v1"
     policyv1beta1 "k8s.io/api/policy/v1beta1"
@@ -30,6 +31,9 @@ import (
 const (
     PreventEvictAnnotation = "k8s-eviction-extender.michaelgugino.github.com/no-evict"
     EvictionRequested = "k8s-eviction-extender.michaelgugino.github.com/evict-requested"
+    // Code 429 is handled by kubectl drain as an instruction to retry
+    // the eviction.  This mimics a blocking PDB to most clients.
+    retryCode = 429
 )
 
 type evictionExtender struct {
@@ -67,7 +71,7 @@ func (ex evictionExtender) evictionCreate(ar admissionv1.AdmissionReview) *admis
         reviewResponse.Allowed = false
     	reviewResponse.Result = &metav1.Status{
     		Reason: "Unable to get pod",
-            Code: 429,
+            Code: retryCode,
     	}
         return &reviewResponse
     }
@@ -75,7 +79,8 @@ func (ex evictionExtender) evictionCreate(ar admissionv1.AdmissionReview) *admis
     if _, exists := pod.ObjectMeta.Annotations[PreventEvictAnnotation]; exists {
         if _, exists := pod.ObjectMeta.Annotations[EvictionRequested]; !exists {
             p2 := pod.DeepCopy()
-            metav1.SetMetaDataAnnotation(&p2.ObjectMeta, EvictionRequested, "")
+            now :=  time.Now().UTC().Format(time.RFC3339)
+            metav1.SetMetaDataAnnotation(&p2.ObjectMeta, EvictionRequested, now)
             _, err := ex.kclient.CoreV1().Pods(namespace).Update(context.TODO(), p2, metav1.UpdateOptions{})
             if err != nil {
                 klog.Errorf("Error updating pod: %v", err)
@@ -84,7 +89,7 @@ func (ex evictionExtender) evictionCreate(ar admissionv1.AdmissionReview) *admis
         reviewResponse.Allowed = false
     	reviewResponse.Result = &metav1.Status{
     		Reason: "Eviction not allowed by PreventEvictAnnotation",
-            Code: 429,
+            Code: retryCode,
     	}
         return &reviewResponse
 	}
