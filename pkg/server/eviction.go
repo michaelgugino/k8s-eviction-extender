@@ -46,11 +46,8 @@ func (ex evictionExtender) evictionCreate(ar admissionv1.AdmissionReview) *admis
 	}
 
 	var raw []byte
-	if ar.Request.Operation == admissionv1.Delete {
-		raw = ar.Request.OldObject.Raw
-	} else {
-		raw = ar.Request.Object.Raw
-	}
+	raw = ar.Request.Object.Raw
+
 	evictionRequest := policyv1beta1.Eviction{}
 	deserializer := codecs.UniversalDeserializer()
 	if _, _, err := deserializer.Decode(raw, nil, &evictionRequest); err != nil {
